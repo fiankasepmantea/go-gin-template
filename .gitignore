@@ -1,0 +1,13 @@
+# binaries
+/bin
+/build
+
+# env
+.env
+
+# logs
+*.log
+
+# IDE
+.vscode
+.idea
