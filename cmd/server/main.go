@@ -19,16 +19,24 @@ func main() {
 
 	r := gin.Default()
 
-	r.Use(middleware.RBACMiddleware())
-
 	db := database.DB
 
 	userRepo := userModule.NewRepository(db)
 	userService := userModule.NewService(userRepo)
 	userHandler := userModule.NewHandler(userService)
 
-	r.GET("/users", userHandler.GetAll)
+	// ✅ PUBLIC ROUTES
 	r.POST("/login", userHandler.Login)
+
+	// ✅ PROTECTED ROUTES
+	authGroup := r.Group("/")
+	authGroup.Use(
+		middleware.AuthMiddleware(),
+		middleware.RBACMiddleware(db),
+	)
+
+	authGroup.GET("/users", userHandler.GetAll)
+	authGroup.GET("/me", userHandler.Me)
 
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "server running"})
