@@ -1,8 +1,6 @@
 # binaries
 /bin
 /build
-
-/internal
 # env
 .env
 
