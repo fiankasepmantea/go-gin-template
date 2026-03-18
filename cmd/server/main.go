@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/fiankasepman/go-gin-template/configs"
@@ -17,6 +19,11 @@ func main() {
 	database.RunMigrations()
 	database.SeedAll()
 
+	var name string
+	fmt.Println("DB NAME CHECK")
+	database.DB.Raw("SELECT current_database()").Scan(&name)
+	fmt.Println("CONNECTED DB:", name)
+
 	r := gin.Default()
 
 	db := database.DB
@@ -25,10 +32,10 @@ func main() {
 	userService := userModule.NewService(userRepo)
 	userHandler := userModule.NewHandler(userService)
 
-	// ✅ PUBLIC ROUTES
+	// PUBLIC
 	r.POST("/login", userHandler.Login)
 
-	// ✅ PROTECTED ROUTES
+	// PROTECTED
 	authGroup := r.Group("/")
 	authGroup.Use(
 		middleware.AuthMiddleware(),
