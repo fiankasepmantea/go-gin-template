@@ -10,6 +10,8 @@ require (
 	gorm.io/gorm v1.31.1
 )
 
+require github.com/segmentio/ksuid v1.0.4
+
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect

@@ -9,7 +9,6 @@ import (
 
 func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		path := c.FullPath()
 		method := c.Request.Method
 
@@ -31,11 +30,10 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		var count int64
-
 		db.Table("users u").
 			Joins("JOIN groups g ON g.group_id = u.group_id").
 			Joins("JOIN group_endpoint ge ON ge.group_id = g.group_id").
-			Joins("JOIN endpoint e ON e.endpoint_id  = ge.endpoint_id").
+			Joins("JOIN endpoint e ON e.endpoint_id = ge.endpoint_id").
 			Where("u.user_id = ? AND e.value = ? AND e.method = ?", userID, path, method).
 			Count(&count)
 
