@@ -35,7 +35,7 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 		db.Table("users u").
 			Joins("JOIN groups g ON g.group_id = u.group_id").
 			Joins("JOIN group_endpoint ge ON ge.group_id = g.group_id").
-			Joins("JOIN endpoint e ON e.id = ge.endpoint_id").
+			Joins("JOIN endpoint e ON e.endpoint_id  = ge.endpoint_id").
 			Where("u.user_id = ? AND e.value = ? AND e.method = ?", userID, path, method).
 			Count(&count)
 
