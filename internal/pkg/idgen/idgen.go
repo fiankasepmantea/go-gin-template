@@ -2,7 +2,10 @@ package idgen
 
 import "github.com/segmentio/ksuid"
 
-
+// NewID returns a new KSUID string
+func NewID() string {
+	return ksuid.New().String()
+}
 // NewUserID generates a new KSUID for users.user_id
 func NewUserID() string {
 	return ksuid.New().String()

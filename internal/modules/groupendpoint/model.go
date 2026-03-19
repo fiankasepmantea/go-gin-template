@@ -1,8 +1,12 @@
 package groupendpoint
 
-import "github.com/fiankasepman/go-gin-template/internal/pkg/idgen"
+import (
+	// "github.com/fiankasepman/go-gin-template/internal/base"
+	"github.com/fiankasepman/go-gin-template/internal/pkg/idgen"
+)
 
 type GroupEndpoint struct {
+	// base.BaseModel
 	ID         string `gorm:"column:id;primaryKey"`
 	GroupID    string `gorm:"column:group_id"`
 	EndpointID string `gorm:"column:endpoint_id"`

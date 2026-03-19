@@ -2,19 +2,20 @@ package base
 
 import (
 	"time"
-
-	"github.com/google/uuid"
-	"gorm.io/gorm"
+	// "github.com/fiankasepman/go-gin-template/internal/pkg/idgen"
+	// "gorm.io/gorm"
 )
 
 type BaseModel struct {
-	ID        string         `gorm:"primaryKey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	// ID        string    `gorm:"column:id;primaryKey"`
+	CreatedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
+	UpdatedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
+	DeletedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
 }
 
-func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
-	b.ID = uuid.New().String()
-	return nil
-}
+// func (b *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
+// 	if b.ID == "" {
+// 		b.ID = idgen.NewID()
+// 	}
+// 	return
+// }

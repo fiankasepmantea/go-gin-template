@@ -3,10 +3,12 @@ package user
 import (
 	"time"
 
+	// "github.com/fiankasepman/go-gin-template/internal/base"
 	"github.com/fiankasepman/go-gin-template/internal/pkg/idgen"
 )
 
 type User struct {
+	// base.BaseModel
 	UserID    string     `gorm:"column:user_id;primaryKey"`
 	UserUnique int       `gorm:"column:user_unique;autoIncrement;unique"`
 	GroupID   *string    `gorm:"column:group_id"`
@@ -18,7 +20,6 @@ type User struct {
 	Avatar    *string    `gorm:"column:avatar"`
 	Status    *int16     `gorm:"column:status"`
 	Token     *string    `gorm:"column:token"`
-	CreatedAt time.Time  `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
 	LoginDate time.Time  `gorm:"column:login_date;default:CURRENT_TIMESTAMP"`
 	AccessAt  time.Time  `gorm:"column:access_at;default:CURRENT_TIMESTAMP"`
 	IsAdmin   *int16     `gorm:"column:is_admin;default:0"`

@@ -1,17 +1,16 @@
 package endpoint
 
 import (
-	"time"
-
+	// "github.com/fiankasepman/go-gin-template/internal/base"
 	"github.com/fiankasepman/go-gin-template/internal/pkg/idgen"
 )
 
 type Endpoint struct {
+	// base.BaseModel
 	EndpointID string     `gorm:"column:endpoint_id;primaryKey"`
 	Value      string     `gorm:"column:value"`
 	Description *string   `gorm:"column:description"`
 	CreatedBy  *string    `gorm:"column:created_by"`
-	CreatedAt  time.Time  `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
 	Method     string     `gorm:"column:method"`
 	Type       string     `gorm:"column:type"`
 	Bypass     int        `gorm:"column:bypass"`
