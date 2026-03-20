@@ -45,9 +45,11 @@ func main() {
 
 	// ================== PUBLIC ROUTES ==================
 	r.POST("/login", userHandler.Login)
+	r.POST("/refresh", userHandler.Refresh)
 
 	// ================== PROTECTED ROUTES ==================
 	authGroup := r.Group("/")
+	authGroup.POST("/logout", userHandler.Logout)
 	authGroup.Use(
 		middleware.AuthMiddleware(),
 		middleware.RBACMiddleware(db),

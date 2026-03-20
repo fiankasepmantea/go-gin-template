@@ -2,6 +2,9 @@ package idgen
 
 import "github.com/segmentio/ksuid"
 
+func NewRefreshToken() string {
+	return ksuid.New().String()
+}
 // NewID returns a new KSUID string
 func NewID() string {
 	return ksuid.New().String()

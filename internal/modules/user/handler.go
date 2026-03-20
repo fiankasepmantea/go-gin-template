@@ -103,3 +103,38 @@ func (h *Handler) Me(c *gin.Context) {
 		"user_id": userID,
 	})
 }
+
+func (h *Handler) Refresh(c *gin.Context) {
+
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	if !h.Bind(c, &req) {
+		return
+	}
+
+	token, err := h.service.Refresh(req.RefreshToken)
+	if err != nil {
+		h.Error(c, err.Error())
+		return
+	}
+
+	h.Success(c, gin.H{
+		"access_token": token,
+	})
+}
+func (h *Handler) Logout(c *gin.Context) {
+
+	userID := h.GetUserID(c)
+
+	err := h.service.Logout(userID)
+	if err != nil {
+		h.Error(c, err.Error())
+		return
+	}
+
+	h.Success(c, gin.H{
+		"message": "logout success",
+	})
+}

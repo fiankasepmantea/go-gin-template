@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/fiankasepman/go-gin-template/internal/auth"
+	"github.com/fiankasepman/go-gin-template/internal/pkg/idgen"
 )
 
 type Service struct {
@@ -15,8 +16,9 @@ func NewService(repo *Repository) *Service {
 }
 
 type LoginResponse struct {
-	User  *User  `json:"user"`
-	Token string `json:"token"`
+	User         *User  `json:"user"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // GET ALL
@@ -55,13 +57,53 @@ func (s *Service) Login(username, password string) (*LoginResponse, error) {
 		return nil, errors.New("invalid password")
 	}
 
-	token, err := auth.GenerateToken(user.UserID)
+	// access token
+	accessToken, err := auth.GenerateToken(user.UserID)
 	if err != nil {
 		return nil, err
 	}
 
+	refreshToken := idgen.NewRefreshToken()
+
+	// simpan ke DB
+	user.Token = &refreshToken
+	s.repo.Update(&user)
+
 	return &LoginResponse{
-		User:  &user,
-		Token: token,
+		User:         &user,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s *Service) Refresh(refreshToken string) (string, error) {
+
+	var user User
+
+	err := s.repo.DB.Where("token = ?", refreshToken).First(&user).Error
+	if err != nil {
+		return "", errors.New("invalid refresh token")
+	}
+
+	// generate access token baru
+	newAccessToken, err := auth.GenerateToken(user.UserID)
+	if err != nil {
+		return "", err
+	}
+
+	return newAccessToken, nil
+}
+
+func (s *Service) Logout(userID string) error {
+
+	var user User
+
+	err := s.repo.DB.Where("user_id = ?", userID).First(&user).Error
+	if err != nil {
+		return err
+	}
+
+	user.Token = nil
+
+	return s.repo.Update(&user)
 }
