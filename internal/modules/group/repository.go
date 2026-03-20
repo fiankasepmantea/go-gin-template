@@ -1,15 +1,16 @@
 package group
 
-import "gorm.io/gorm"
+import (
+	"github.com/fiankasepman/go-gin-template/internal/base"
+	"gorm.io/gorm"
+)
 
 type Repository struct {
-	DB *gorm.DB
+	base.BaseRepository[Group]
 }
 
 func NewRepository(db *gorm.DB) *Repository {
-	return &Repository{DB: db}
-}
-
-func (r *Repository) FindAll(out *[]Group) error {
-	return r.DB.Find(out).Error
+	return &Repository{
+		BaseRepository: base.BaseRepository[Group]{DB: db},
+	}
 }

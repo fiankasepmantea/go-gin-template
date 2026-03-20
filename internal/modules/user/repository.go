@@ -1,23 +1,20 @@
 package user
 
-import "gorm.io/gorm"
+import (
+	"github.com/fiankasepman/go-gin-template/internal/base"
+	"gorm.io/gorm"
+)
 
 type Repository struct {
-	DB *gorm.DB
+	base.BaseRepository[User]
 }
 
 func NewRepository(db *gorm.DB) *Repository {
-	return &Repository{DB: db}
+	return &Repository{
+		BaseRepository: base.BaseRepository[User]{DB: db},
+	}
 }
 
-func (r *Repository) FindAll(users *[]User) error {
-	return r.DB.Find(users).Error
-}
-
-func (r *Repository) FindByUsername(username string, user *User) error {
-	return r.DB.Where("username = ?", username).First(user).Error
-}
-
-func (r *Repository) Create(user *User) error {
-	return r.DB.Create(user).Error
+func (r *Repository) FindByUsername(username string, out *User) error {
+	return r.DB.Where("username = ?", username).First(out).Error
 }

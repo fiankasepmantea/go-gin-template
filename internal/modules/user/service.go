@@ -19,19 +19,36 @@ type LoginResponse struct {
 	Token string `json:"token"`
 }
 
+// GET ALL
 func (s *Service) GetAll() ([]User, error) {
 	var users []User
 	err := s.repo.FindAll(&users)
 	return users, err
 }
 
+// CREATE
+func (s *Service) Create(user *User) error {
+	user.UserID = NewUserID()
+	return s.repo.Create(user)
+}
+
+// UPDATE
+func (s *Service) Update(user *User) error {
+	return s.repo.Update(user)
+}
+
+// DELETE
+func (s *Service) Delete(id string) error {
+	return s.repo.Delete(id)
+}
+
+// LOGIN
 func (s *Service) Login(username, password string) (*LoginResponse, error) {
 
 	var user User
-
 	err := s.repo.FindByUsername(username, &user)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("user not found")
 	}
 
 	if !auth.CheckPassword(password, user.Password) {

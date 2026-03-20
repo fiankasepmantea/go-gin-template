@@ -30,7 +30,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// pastikan user_id selalu string
 		c.Set("user_id", payload.UserID)
 
 		c.Next()
