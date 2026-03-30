@@ -50,9 +50,9 @@ func (r *BaseRepository[T]) DeleteWhere(cond interface{}, model *T) error {
 	return r.DB.Where(cond).Delete(model).Error
 }
 
-func (r *BaseRepository[T]) Count(model *T) (int64, error) {
+func (r *BaseRepository[T]) Count() (int64, error) {
 	var total int64
-	err := r.DB.Model(model).Count(&total).Error
+	err := r.DB.Model(new(T)).Count(&total).Error
 	return total, err
 }
 

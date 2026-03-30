@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/fiankasepman/go-gin-template/internal/auth"
+	"github.com/fiankasepman/go-gin-template/internal/base"
 	"github.com/fiankasepman/go-gin-template/internal/pkg/idgen"
 )
 
@@ -21,33 +22,43 @@ type LoginResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-// GET ALL
-func (s *Service) GetAll() ([]User, error) {
-	var users []User
-	err := s.repo.FindAll(&users)
-	return users, err
+func (s *Service) GetAll(limit, offset int) (interface{}, error) {
+	var data []User
+
+	err := s.repo.Paginate(limit, offset, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	total, err := s.repo.Count()
+	if err != nil {
+		return nil, err
+	}
+
+	page := 1
+	if limit > 0 {
+		page = (offset / limit) + 1
+	}
+
+	return base.BuildPagination(page, limit, total, data), nil
 }
 
-// CREATE
 func (s *Service) Create(user *User) error {
 	user.UserID = NewUserID()
 	return s.repo.Create(user)
 }
 
-// UPDATE
 func (s *Service) Update(user *User) error {
 	return s.repo.Update(user)
 }
 
-// DELETE
 func (s *Service) Delete(id string) error {
 	return s.repo.Delete(id)
 }
-
-// LOGIN
 func (s *Service) Login(username, password string) (*LoginResponse, error) {
 
 	var user User
+
 	err := s.repo.FindByUsername(username, &user)
 	if err != nil {
 		return nil, errors.New("user not found")
@@ -57,7 +68,6 @@ func (s *Service) Login(username, password string) (*LoginResponse, error) {
 		return nil, errors.New("invalid password")
 	}
 
-	// access token
 	accessToken, err := auth.GenerateToken(user.UserID)
 	if err != nil {
 		return nil, err
@@ -65,9 +75,14 @@ func (s *Service) Login(username, password string) (*LoginResponse, error) {
 
 	refreshToken := idgen.NewRefreshToken()
 
-	// simpan ke DB
-	user.Token = &refreshToken
-	s.repo.Update(&user)
+	err = s.repo.UpdatesWhere(
+		map[string]interface{}{"user_id": user.UserID},
+		map[string]interface{}{"token": refreshToken},
+		&user,
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	return &LoginResponse{
 		User:         &user,
@@ -75,17 +90,18 @@ func (s *Service) Login(username, password string) (*LoginResponse, error) {
 		RefreshToken: refreshToken,
 	}, nil
 }
-
 func (s *Service) Refresh(refreshToken string) (string, error) {
 
 	var user User
 
-	err := s.repo.DB.Where("token = ?", refreshToken).First(&user).Error
+	err := s.repo.FindOneWhere(
+		map[string]interface{}{"token": refreshToken},
+		&user,
+	)
 	if err != nil {
 		return "", errors.New("invalid refresh token")
 	}
 
-	// generate access token baru
 	newAccessToken, err := auth.GenerateToken(user.UserID)
 	if err != nil {
 		return "", err
@@ -98,12 +114,17 @@ func (s *Service) Logout(userID string) error {
 
 	var user User
 
-	err := s.repo.DB.Where("user_id = ?", userID).First(&user).Error
+	err := s.repo.FindOneWhere(
+		map[string]interface{}{"user_id": userID},
+		&user,
+	)
 	if err != nil {
 		return err
 	}
 
-	user.Token = nil
-
-	return s.repo.Update(&user)
+	return s.repo.UpdatesWhere(
+		map[string]interface{}{"user_id": userID},
+		map[string]interface{}{"token": nil},
+		&user,
+	)
 }

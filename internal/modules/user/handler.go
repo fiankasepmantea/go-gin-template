@@ -16,11 +16,14 @@ func NewHandler(service *Service) *Handler {
 
 // GET ALL
 func (h *Handler) GetAll(c *gin.Context) {
-	data, err := h.service.GetAll()
+	limit, _, offset := h.GetPagination(c)
+
+	data, err := h.service.GetAll(limit, offset)
 	if err != nil {
 		h.Error(c, err.Error())
 		return
 	}
+
 	h.Success(c, data)
 }
 
