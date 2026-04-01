@@ -2,18 +2,24 @@ package user
 
 import (
 	"errors"
+	"time"
 
 	"github.com/fiankasepman/go-gin-template/internal/auth"
 	"github.com/fiankasepman/go-gin-template/internal/base"
+	usertoken "github.com/fiankasepman/go-gin-template/internal/modules/user_token"
 	"github.com/fiankasepman/go-gin-template/internal/pkg/idgen"
 )
 
 type Service struct {
 	repo *Repository
+	tokenRepo  *usertoken.Repository
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, tokenRepo *usertoken.Repository) *Service {
+	return &Service{
+		repo:      repo,
+		tokenRepo: tokenRepo,
+	}
 }
 
 type LoginResponse struct {
@@ -55,7 +61,7 @@ func (s *Service) Update(user *User) error {
 func (s *Service) Delete(id string) error {
 	return s.repo.Delete(id)
 }
-func (s *Service) Login(username, password string) (*LoginResponse, error) {
+func (s *Service) Login(username, password, device, ua, ip string) (*LoginResponse, error) {
 
 	var user User
 
@@ -75,11 +81,17 @@ func (s *Service) Login(username, password string) (*LoginResponse, error) {
 
 	refreshToken := idgen.NewRefreshToken()
 
-	err = s.repo.UpdatesWhere(
-		map[string]interface{}{"user_id": user.UserID},
-		map[string]interface{}{"token": refreshToken},
-		&user,
-	)
+	token := usertoken.UserToken{
+		ID:           idgen.NewUserTokenID(),
+		UserID:       user.UserID,
+		RefreshToken: refreshToken,
+		Device:       &device,
+		UserAgent:    &ua,
+		IPAddress:    &ip,
+		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	err = s.tokenRepo.Create(&token)
 	if err != nil {
 		return nil, err
 	}
@@ -92,39 +104,23 @@ func (s *Service) Login(username, password string) (*LoginResponse, error) {
 }
 func (s *Service) Refresh(refreshToken string) (string, error) {
 
-	var user User
+	var token usertoken.UserToken
 
-	err := s.repo.FindOneWhere(
-		map[string]interface{}{"token": refreshToken},
-		&user,
-	)
+	err := s.tokenRepo.FindByToken(refreshToken, &token)
 	if err != nil {
 		return "", errors.New("invalid refresh token")
 	}
 
-	newAccessToken, err := auth.GenerateToken(user.UserID)
-	if err != nil {
-		return "", err
+	if time.Now().After(token.ExpiresAt) {
+		return "", errors.New("refresh token expired")
 	}
 
-	return newAccessToken, nil
+	return auth.GenerateToken(token.UserID)
+}
+func (s *Service) Logout(refreshToken string) error {
+	return s.tokenRepo.DeleteByToken(refreshToken)
 }
 
-func (s *Service) Logout(userID string) error {
-
-	var user User
-
-	err := s.repo.FindOneWhere(
-		map[string]interface{}{"user_id": userID},
-		&user,
-	)
-	if err != nil {
-		return err
-	}
-
-	return s.repo.UpdatesWhere(
-		map[string]interface{}{"user_id": userID},
-		map[string]interface{}{"token": nil},
-		&user,
-	)
+func (s *Service) LogoutAll(userID string) error {
+	return s.tokenRepo.DeleteByUser(userID)
 }

@@ -77,6 +77,25 @@ func (h *Handler) Delete(c *gin.Context) {
 }
 
 // LOGIN
+// func (h *Handler) Login(c *gin.Context) {
+
+// 	var req struct {
+// 		Username string `json:"username"`
+// 		Password string `json:"password"`
+// 	}
+
+// 	if !h.Bind(c, &req) {
+// 		return
+// 	}
+
+// 	res, err := h.service.Login(req.Username, req.Password)
+// 	if err != nil {
+// 		h.Error(c, err.Error())
+// 		return
+// 	}
+
+// 	h.Success(c, res)
+// }
 func (h *Handler) Login(c *gin.Context) {
 
 	var req struct {
@@ -88,7 +107,11 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	res, err := h.service.Login(req.Username, req.Password)
+	device := c.GetHeader("X-Device")
+	ua := c.Request.UserAgent()
+	ip := c.ClientIP()
+
+	res, err := h.service.Login(req.Username, req.Password, device, ua, ip)
 	if err != nil {
 		h.Error(c, err.Error())
 		return
@@ -96,7 +119,6 @@ func (h *Handler) Login(c *gin.Context) {
 
 	h.Success(c, res)
 }
-
 // ME
 func (h *Handler) Me(c *gin.Context) {
 
@@ -107,6 +129,26 @@ func (h *Handler) Me(c *gin.Context) {
 	})
 }
 
+// func (h *Handler) Refresh(c *gin.Context) {
+
+// 	var req struct {
+// 		RefreshToken string `json:"refresh_token"`
+// 	}
+
+// 	if !h.Bind(c, &req) {
+// 		return
+// 	}
+
+// 	token, err := h.service.Refresh(req.RefreshToken)
+// 	if err != nil {
+// 		h.Error(c, err.Error())
+// 		return
+// 	}
+
+// 	h.Success(c, gin.H{
+// 		"access_token": token,
+// 	})
+// }
 func (h *Handler) Refresh(c *gin.Context) {
 
 	var req struct {
@@ -123,21 +165,50 @@ func (h *Handler) Refresh(c *gin.Context) {
 		return
 	}
 
-	h.Success(c, gin.H{
-		"access_token": token,
-	})
+	h.Success(c, gin.H{"access_token": token})
 }
+// func (h *Handler) Logout(c *gin.Context) {
+
+// 	userID := h.GetUserID(c)
+
+// 	err := h.service.Logout(userID)
+// 	if err != nil {
+// 		h.Error(c, err.Error())
+// 		return
+// 	}
+
+// 	h.Success(c, gin.H{
+// 		"message": "logout success",
+// 	})
+// }
 func (h *Handler) Logout(c *gin.Context) {
 
-	userID := h.GetUserID(c)
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
 
-	err := h.service.Logout(userID)
+	if !h.Bind(c, &req) {
+		return
+	}
+
+	err := h.service.Logout(req.RefreshToken)
 	if err != nil {
 		h.Error(c, err.Error())
 		return
 	}
 
-	h.Success(c, gin.H{
-		"message": "logout success",
-	})
+	h.Success(c, "logout success")
+}
+
+func (h *Handler) LogoutAll(c *gin.Context) {
+
+	userID := h.GetUserID(c)
+
+	err := h.service.LogoutAll(userID)
+	if err != nil {
+		h.Error(c, err.Error())
+		return
+	}
+
+	h.Success(c, "logout all device success")
 }

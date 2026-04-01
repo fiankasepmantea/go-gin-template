@@ -2,29 +2,14 @@ package idgen
 
 import "github.com/segmentio/ksuid"
 
-func NewRefreshToken() string {
-	return ksuid.New().String()
-}
-// NewID returns a new KSUID string
-func NewID() string {
-	return ksuid.New().String()
-}
-// NewUserID generates a new KSUID for users.user_id
-func NewUserID() string {
+func newKSUID() string {
 	return ksuid.New().String()
 }
 
-// NewGroupID generates a new KSUID for groups.group_id
-func NewGroupID() string {
-	return ksuid.New().String()
-}
-
-// NewEndpointID generates a new KSUID for endpoint.endpoint_id
-func NewEndpointID() string {
-	return ksuid.New().String()
-}
-
-// NewGroupEndpointID generates a new KSUID for group_endpoint.id
-func NewGroupEndpointID() string {
-	return ksuid.New().String()
-}
+func NewID() string          { return newKSUID() }
+func NewUserID() string          { return newKSUID() }
+func NewUserTokenID() string     { return newKSUID() }
+func NewGroupID() string         { return newKSUID() }
+func NewEndpointID() string      { return newKSUID() }
+func NewGroupEndpointID() string { return newKSUID() }
+func NewRefreshToken() string    { return newKSUID() }

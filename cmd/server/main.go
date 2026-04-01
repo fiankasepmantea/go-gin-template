@@ -11,6 +11,7 @@ import (
 
 	userModule "github.com/fiankasepman/go-gin-template/internal/modules/user"
 	groupModule "github.com/fiankasepman/go-gin-template/internal/modules/group"
+	usertoken "github.com/fiankasepman/go-gin-template/internal/modules/user_token"
 )
 
 func main() {
@@ -33,9 +34,11 @@ func main() {
 	r := gin.Default()
 	db := database.DB
 
+	// ================== USER TOKEN MODULE ==================
+	userTokenRepo := usertoken.NewRepository(db)
 	// ================== USER MODULE ==================
 	userRepo := userModule.NewRepository(db)
-	userService := userModule.NewService(userRepo)
+	userService := userModule.NewService(userRepo, userTokenRepo)
 	userHandler := userModule.NewHandler(userService)
 
 	// ================== GROUP MODULE ==================
@@ -50,6 +53,7 @@ func main() {
 	// ================== PROTECTED ROUTES ==================
 	authGroup := r.Group("/")
 	authGroup.POST("/logout", userHandler.Logout)
+	authGroup.POST("/logout-all", userHandler.LogoutAll)
 	authGroup.Use(
 		middleware.AuthMiddleware(),
 		middleware.RBACMiddleware(db),

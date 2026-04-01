@@ -7,10 +7,9 @@ import (
 )
 
 type BaseModel struct {
-	// ID        string    `gorm:"column:id;primaryKey"`
-	CreatedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
-	UpdatedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
-	DeletedAt time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP"`
+	CreatedAt time.Time  `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt time.Time  `gorm:"column:updated_at;autoUpdateTime"`
+	DeletedAt *time.Time `gorm:"column:deleted_at;index"`
 }
 
 // func (b *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
