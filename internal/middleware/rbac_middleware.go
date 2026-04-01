@@ -1,11 +1,13 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
-	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/fiankasepman/go-gin-template/configs"
 	"github.com/fiankasepman/go-gin-template/internal/cache"
+	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -14,6 +16,15 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		path := c.FullPath()
 		method := c.Request.Method
+
+		// ================== USER CONTEXT ==================
+		userID := c.GetString("user_id")
+		domainID := c.GetInt("domain_id")
+
+		if userID == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
 
 		// ================== GET ENDPOINT ==================
 		var endpoint struct {
@@ -31,28 +42,21 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// ================== BYPASS ==================
 		if endpoint.Bypass == 1 {
 			c.Next()
 			return
 		}
 
-		// ================== USER CONTEXT ==================
-		userID := c.GetString("user_id")
-		domainID := c.GetInt("domain_id")
-
-		if userID == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-
-		// ================== ADMIN CHECK ==================
+		// ================== SUPER ADMIN ==================
 		var isAdmin int
-		db.Table("users").
+
+		err = db.Table("users").
 			Select("is_admin").
 			Where("user_id = ? AND domain_id = ?", userID, domainID).
-			Scan(&isAdmin)
+			Scan(&isAdmin).Error
 
-		if isAdmin == 1 {
+		if err == nil && isAdmin == 1 {
 			c.Next()
 			return
 		}
@@ -63,12 +67,19 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 		val, err := cache.RDB.Get(cache.Ctx, key).Result()
 
 		if err == nil {
+			// cache hit
 			if val == "1" {
 				c.Next()
 				return
 			}
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
+		}
+
+		// kalau bukan karena key tidak ada → redis error
+		if err != nil && !errors.Is(err, redis.Nil) {
+			// log optional
+			// log.Println("redis error:", err)
 		}
 
 		// ================== DB FALLBACK ==================
@@ -91,8 +102,9 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 			cacheValue = "1"
 		}
 
-		cache.RDB.Set(cache.Ctx, key, cacheValue, 10*time.Minute)
+		_ = cache.RDB.Set(cache.Ctx, key, cacheValue, configs.AccessTokenDuration).Err()
 
+		// ================== FINAL CHECK ==================
 		if count == 0 {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return

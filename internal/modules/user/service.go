@@ -7,14 +7,17 @@ import (
 	"github.com/fiankasepman/go-gin-template/configs"
 	"github.com/fiankasepman/go-gin-template/internal/auth"
 	"github.com/fiankasepman/go-gin-template/internal/base"
-	usertoken "github.com/fiankasepman/go-gin-template/internal/modules/user_token"
+	"github.com/fiankasepman/go-gin-template/internal/cache"
 	"github.com/fiankasepman/go-gin-template/internal/pkg/idgen"
+
+	usertoken "github.com/fiankasepman/go-gin-template/internal/modules/user_token"
 )
 
 type Service struct {
 	repo      *Repository
 	tokenRepo *usertoken.Repository
 }
+
 type DeviceResponse struct {
 	ID        string    `json:"id"`
 	Device    *string   `json:"device"`
@@ -71,6 +74,8 @@ func (s *Service) Update(user *User) error {
 func (s *Service) Delete(id string) error {
 	return s.repo.Delete(id)
 }
+
+// ================== LOGIN ==================
 func (s *Service) Login(username, password, device, ua, ip string) (*LoginResponse, error) {
 
 	var user User
@@ -94,11 +99,10 @@ func (s *Service) Login(username, password, device, ua, ip string) (*LoginRespon
 		Device:       &device,
 		UserAgent:    &ua,
 		IPAddress:    &ip,
-		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
+		ExpiresAt:    time.Now().Add(configs.RefreshTokenDuration),
 	}
 
-	err = s.tokenRepo.Create(&token)
-	if err != nil {
+	if err := s.tokenRepo.Create(&token); err != nil {
 		return nil, err
 	}
 
@@ -107,12 +111,17 @@ func (s *Service) Login(username, password, device, ua, ip string) (*LoginRespon
 		return nil, err
 	}
 
+	// preload RBAC ke redis
+	s.preloadRBAC(user)
+
 	return &LoginResponse{
 		User:         &user,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
 }
+
+// ================== REFRESH ==================
 func (s *Service) Refresh(refreshToken string) (string, string, error) {
 
 	var token usertoken.UserToken
@@ -133,8 +142,7 @@ func (s *Service) Refresh(refreshToken string) (string, string, error) {
 	}
 
 	// delete old token
-	err = s.tokenRepo.DeleteByToken(refreshToken)
-	if err != nil {
+	if err := s.tokenRepo.DeleteByToken(refreshToken); err != nil {
 		return "", "", err
 	}
 
@@ -152,8 +160,7 @@ func (s *Service) Refresh(refreshToken string) (string, string, error) {
 		ExpiresAt:    time.Now().Add(configs.RefreshTokenDuration),
 	}
 
-	err = s.tokenRepo.Create(&newToken)
-	if err != nil {
+	if err := s.tokenRepo.Create(&newToken); err != nil {
 		return "", "", err
 	}
 
@@ -164,6 +171,8 @@ func (s *Service) Refresh(refreshToken string) (string, string, error) {
 
 	return accessToken, newRefresh, nil
 }
+
+// ================== LOGOUT ==================
 func (s *Service) Logout(refreshToken string) error {
 	return s.tokenRepo.DeleteByToken(refreshToken)
 }
@@ -172,6 +181,7 @@ func (s *Service) LogoutAll(userID string) error {
 	return s.tokenRepo.DeleteByUser(userID)
 }
 
+// ================== DEVICES ==================
 func (s *Service) GetDevices(userID, currentTokenID string) ([]DeviceResponse, error) {
 
 	var tokens []usertoken.UserToken
@@ -184,7 +194,6 @@ func (s *Service) GetDevices(userID, currentTokenID string) ([]DeviceResponse, e
 	var result []DeviceResponse
 
 	for _, t := range tokens {
-
 		result = append(result, DeviceResponse{
 			ID:        t.ID,
 			Device:    t.Device,
@@ -198,9 +207,10 @@ func (s *Service) GetDevices(userID, currentTokenID string) ([]DeviceResponse, e
 
 	return result, nil
 }
+
+// ================== REVOKE DEVICE ==================
 func (s *Service) RevokeDevice(userID, tokenID string) error {
 
-	// optional: validasi ownership
 	var token usertoken.UserToken
 
 	err := s.tokenRepo.FindByID(tokenID, &token)
@@ -213,4 +223,30 @@ func (s *Service) RevokeDevice(userID, tokenID string) error {
 	}
 
 	return s.tokenRepo.DeleteByID(tokenID)
+}
+
+// ================== PRELOAD RBAC ==================
+func (s *Service) preloadRBAC(user User) {
+
+	if user.GroupID == nil {
+		return
+	}
+
+	var endpointIDs []string
+
+	err := s.repo.DB.Table("users u").
+		Select("ge.endpoint_id").
+		Joins("JOIN groups g ON g.group_id = u.group_id").
+		Joins("JOIN group_endpoint ge ON ge.group_id = g.group_id").
+		Where("u.user_id = ?", user.UserID).
+		Scan(&endpointIDs).Error
+
+	if err != nil {
+		return
+	}
+
+	for _, ep := range endpointIDs {
+		key := "rbac:" + user.UserID + ":" + ep
+		cache.RDB.Set(cache.Ctx, key, "1", configs.AccessTokenDuration)
+	}
 }

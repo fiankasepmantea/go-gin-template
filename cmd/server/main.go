@@ -96,7 +96,7 @@ func main() {
 	authGroup.GET("/group-endpoints/:group_id", groupEndpointHandler.GetByGroup)
 
 	// ================== SYNC ENDPOINT KE DB ==================
-	// 🔥 AFTER ALL ROUTE REGISTERED
+	//  AFTER ALL ROUTE REGISTERED
 	database.SyncEndpoints(db, r)
 
 	// ================== ROOT ==================
@@ -105,5 +105,5 @@ func main() {
 	})
 
 	// ================== RUN ==================
-	r.Run(":8080")
+	r.Run(":" + configs.AppPort)
 }
