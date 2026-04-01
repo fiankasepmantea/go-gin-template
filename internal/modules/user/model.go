@@ -19,7 +19,7 @@ type User struct {
 	Password  string     `gorm:"column:password"`
 	Avatar    *string    `gorm:"column:avatar"`
 	Status    *int16     `gorm:"column:status"`
-	Token     *string    `gorm:"column:token"`
+	// Token     *string    `gorm:"column:token"`
 	LoginDate time.Time  `gorm:"column:login_date;default:CURRENT_TIMESTAMP"`
 	AccessAt  time.Time  `gorm:"column:access_at;default:CURRENT_TIMESTAMP"`
 	IsAdmin   *int16     `gorm:"column:is_admin;default:0"`

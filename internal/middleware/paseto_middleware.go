@@ -25,6 +25,8 @@ func PasetoMiddleware() gin.HandlerFunc {
 		}
 
 		c.Set("user_id", payload.UserID)
+		c.Set("token_id", payload.TokenID)
+		c.Set("domain_id", payload.DomainID)
 
 		c.Next()
 	}

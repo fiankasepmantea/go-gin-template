@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/fiankasepman/go-gin-template/internal/auth"
+	"github.com/gin-gonic/gin"
 )
 
 func AuthMiddleware() gin.HandlerFunc {
@@ -32,7 +32,8 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		c.Set("user_id", payload.UserID)
 		c.Set("token_id", payload.TokenID)
-		
+		c.Set("domain_id", payload.DomainID)
+
 		c.Next()
 	}
 }

@@ -108,13 +108,16 @@ func (h *Handler) Refresh(c *gin.Context) {
 		return
 	}
 
-	token, err := h.service.Refresh(req.RefreshToken)
+	access, refresh, err := h.service.Refresh(req.RefreshToken)
 	if err != nil {
 		h.Error(c, err.Error())
 		return
 	}
 
-	h.Success(c, gin.H{"access_token": token})
+	h.Success(c, gin.H{
+		"access_token":  access,
+		"refresh_token": refresh,
+	})
 }
 func (h *Handler) Logout(c *gin.Context) {
 

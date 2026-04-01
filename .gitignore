@@ -49,3 +49,4 @@ go.work.sum
 Thumbs.db
 
 /internal/database/connection.go
+/configs/env.go

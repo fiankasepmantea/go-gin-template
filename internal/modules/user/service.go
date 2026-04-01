@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/fiankasepman/go-gin-template/configs"
 	"github.com/fiankasepman/go-gin-template/internal/auth"
 	"github.com/fiankasepman/go-gin-template/internal/base"
 	usertoken "github.com/fiankasepman/go-gin-template/internal/modules/user_token"
@@ -11,17 +12,17 @@ import (
 )
 
 type Service struct {
-	repo *Repository
-	tokenRepo  *usertoken.Repository
+	repo      *Repository
+	tokenRepo *usertoken.Repository
 }
 type DeviceResponse struct {
-	ID        string     `json:"id"`
-	Device    *string    `json:"device"`
-	UserAgent *string    `json:"user_agent"`
-	IPAddress *string    `json:"ip_address"`
-	ExpiresAt time.Time  `json:"expires_at"`
-	CreatedAt time.Time  `json:"created_at"`
-	Current   bool       `json:"current"`
+	ID        string    `json:"id"`
+	Device    *string   `json:"device"`
+	UserAgent *string   `json:"user_agent"`
+	IPAddress *string   `json:"ip_address"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+	Current   bool      `json:"current"`
 }
 
 func NewService(repo *Repository, tokenRepo *usertoken.Repository) *Service {
@@ -83,7 +84,6 @@ func (s *Service) Login(username, password, device, ua, ip string) (*LoginRespon
 		return nil, errors.New("invalid password")
 	}
 
-	
 	refreshToken := idgen.NewRefreshToken()
 	tokenID := idgen.NewUserTokenID()
 
@@ -102,7 +102,7 @@ func (s *Service) Login(username, password, device, ua, ip string) (*LoginRespon
 		return nil, err
 	}
 
-	accessToken, err := auth.GenerateToken(user.UserID, tokenID)
+	accessToken, err := auth.GenerateToken(user.UserID, tokenID, user.DomainID)
 	if err != nil {
 		return nil, err
 	}
@@ -113,20 +113,56 @@ func (s *Service) Login(username, password, device, ua, ip string) (*LoginRespon
 		RefreshToken: refreshToken,
 	}, nil
 }
-func (s *Service) Refresh(refreshToken string) (string, error) {
+func (s *Service) Refresh(refreshToken string) (string, string, error) {
 
 	var token usertoken.UserToken
 
 	err := s.tokenRepo.FindByToken(refreshToken, &token)
 	if err != nil {
-		return "", errors.New("invalid refresh token")
+		return "", "", errors.New("invalid refresh token")
 	}
 
 	if time.Now().After(token.ExpiresAt) {
-		return "", errors.New("refresh token expired")
+		return "", "", errors.New("refresh token expired")
 	}
 
-	return auth.GenerateToken(token.UserID, token.ID)
+	var user User
+	err = s.repo.FindByID(token.UserID, &user)
+	if err != nil {
+		return "", "", err
+	}
+
+	// delete old token
+	err = s.tokenRepo.DeleteByToken(refreshToken)
+	if err != nil {
+		return "", "", err
+	}
+
+	// create new token
+	newRefresh := idgen.NewRefreshToken()
+	newTokenID := idgen.NewUserTokenID()
+
+	newToken := usertoken.UserToken{
+		ID:           newTokenID,
+		UserID:       user.UserID,
+		RefreshToken: newRefresh,
+		Device:       token.Device,
+		UserAgent:    token.UserAgent,
+		IPAddress:    token.IPAddress,
+		ExpiresAt:    time.Now().Add(configs.RefreshTokenDuration),
+	}
+
+	err = s.tokenRepo.Create(&newToken)
+	if err != nil {
+		return "", "", err
+	}
+
+	accessToken, err := auth.GenerateToken(user.UserID, newTokenID, user.DomainID)
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessToken, newRefresh, nil
 }
 func (s *Service) Logout(refreshToken string) error {
 	return s.tokenRepo.DeleteByToken(refreshToken)

@@ -56,12 +56,15 @@ func main() {
 
 	// ================== PROTECTED ROUTES ==================
 	authGroup := r.Group("/")
-	authGroup.POST("/logout", userHandler.Logout)
-	authGroup.POST("/logout-all", userHandler.LogoutAll)
 	authGroup.Use(
-		middleware.AuthMiddleware(),
+		// middleware.AuthMiddleware(),
+		middleware.PasetoMiddleware(),
 		middleware.RBACMiddleware(db),
 	)
+
+	// ---------- AUTH ----------
+	authGroup.POST("/logout", userHandler.Logout)
+	authGroup.POST("/logout-all", userHandler.LogoutAll)
 
 	// ---------- USER ----------
 	authGroup.GET("/users", userHandler.GetAll)
@@ -71,7 +74,6 @@ func main() {
 	authGroup.GET("/me", userHandler.Me)
 	authGroup.GET("/devices", userHandler.Devices)
 	authGroup.DELETE("/devices/:id", userHandler.RevokeDevice)
-	authGroup.POST("/logout-all", userHandler.LogoutAll)
 
 	// ---------- GROUP ----------
 	authGroup.GET("/groups", groupHandler.GetAll)
