@@ -2,8 +2,10 @@ package middleware
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/fiankasepman/go-gin-template/internal/cache"
 	"gorm.io/gorm"
 )
 
@@ -13,7 +15,7 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 		path := c.FullPath()
 		method := c.Request.Method
 
-		// ================== CHECK ENDPOINT ==================
+		// ================== GET ENDPOINT ==================
 		var endpoint struct {
 			EndpointID string
 			Bypass     int
@@ -29,47 +31,47 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// bypass endpoint
 		if endpoint.Bypass == 1 {
 			c.Next()
 			return
 		}
 
-		// ================== GET USER CONTEXT ==================
-		userIDVal, exists := c.Get("user_id")
-		if !exists {
+		// ================== USER CONTEXT ==================
+		userID := c.GetString("user_id")
+		domainID := c.GetInt("domain_id")
+
+		if userID == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}
-		userID := userIDVal.(string)
 
-		domainIDVal, _ := c.Get("domain_id")
-		domainID := domainIDVal.(int)
-
-		// ================== CHECK ADMIN ==================
+		// ================== ADMIN CHECK ==================
 		var isAdmin int
-		err = db.Table("users").
+		db.Table("users").
 			Select("is_admin").
 			Where("user_id = ? AND domain_id = ?", userID, domainID).
-			Scan(&isAdmin).Error
+			Scan(&isAdmin)
 
-		if err == nil && isAdmin == 1 {
+		if isAdmin == 1 {
 			c.Next()
 			return
 		}
 
-		// ================== CACHE CHECK ==================
-		key := BuildKey(userID, endpoint.EndpointID)
+		// ================== REDIS CACHE ==================
+		key := "rbac:" + userID + ":" + endpoint.EndpointID
 
-		if allowed, ok := RBACCache[key]; ok {
-			if allowed {
+		val, err := cache.RDB.Get(cache.Ctx, key).Result()
+
+		if err == nil {
+			if val == "1" {
 				c.Next()
 				return
 			}
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
-		// ================== CHECK PERMISSION ==================
+
+		// ================== DB FALLBACK ==================
 		var count int64
 
 		err = db.Table("users u").
@@ -82,14 +84,20 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "rbac error"})
 			return
 		}
-		
-		RBACCache[key] = count > 0
-		
+
+		// ================== SET CACHE ==================
+		cacheValue := "0"
+		if count > 0 {
+			cacheValue = "1"
+		}
+
+		cache.RDB.Set(cache.Ctx, key, cacheValue, 10*time.Minute)
+
 		if count == 0 {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
-		
+
 		c.Next()
 	}
 }
