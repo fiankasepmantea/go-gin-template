@@ -81,6 +81,8 @@ func main() {
 	authGroup.PUT("/groups/:id", groupHandler.Update)
 	authGroup.DELETE("/groups/:id", groupHandler.Delete)
 
+
+	database.SyncEndpoints(db, r)
 	// ================== ROOT ==================
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "server running"})
