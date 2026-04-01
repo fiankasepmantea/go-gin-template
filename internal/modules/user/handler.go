@@ -13,8 +13,6 @@ type Handler struct {
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
-
-// GET ALL
 func (h *Handler) GetAll(c *gin.Context) {
 	limit, _, offset := h.GetPagination(c)
 
@@ -26,8 +24,6 @@ func (h *Handler) GetAll(c *gin.Context) {
 
 	h.Success(c, data)
 }
-
-// CREATE
 func (h *Handler) Create(c *gin.Context) {
 	var req User
 	if !h.Bind(c, &req) {
@@ -42,8 +38,6 @@ func (h *Handler) Create(c *gin.Context) {
 
 	h.Success(c, req)
 }
-
-// UPDATE
 func (h *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
 
@@ -62,8 +56,6 @@ func (h *Handler) Update(c *gin.Context) {
 
 	h.Success(c, req)
 }
-
-// DELETE
 func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
@@ -75,27 +67,6 @@ func (h *Handler) Delete(c *gin.Context) {
 
 	h.Success(c, gin.H{"deleted": id})
 }
-
-// LOGIN
-// func (h *Handler) Login(c *gin.Context) {
-
-// 	var req struct {
-// 		Username string `json:"username"`
-// 		Password string `json:"password"`
-// 	}
-
-// 	if !h.Bind(c, &req) {
-// 		return
-// 	}
-
-// 	res, err := h.service.Login(req.Username, req.Password)
-// 	if err != nil {
-// 		h.Error(c, err.Error())
-// 		return
-// 	}
-
-// 	h.Success(c, res)
-// }
 func (h *Handler) Login(c *gin.Context) {
 
 	var req struct {
@@ -119,7 +90,6 @@ func (h *Handler) Login(c *gin.Context) {
 
 	h.Success(c, res)
 }
-// ME
 func (h *Handler) Me(c *gin.Context) {
 
 	userID := h.GetUserID(c) // pakai BaseHandler
@@ -128,27 +98,6 @@ func (h *Handler) Me(c *gin.Context) {
 		"user_id": userID,
 	})
 }
-
-// func (h *Handler) Refresh(c *gin.Context) {
-
-// 	var req struct {
-// 		RefreshToken string `json:"refresh_token"`
-// 	}
-
-// 	if !h.Bind(c, &req) {
-// 		return
-// 	}
-
-// 	token, err := h.service.Refresh(req.RefreshToken)
-// 	if err != nil {
-// 		h.Error(c, err.Error())
-// 		return
-// 	}
-
-// 	h.Success(c, gin.H{
-// 		"access_token": token,
-// 	})
-// }
 func (h *Handler) Refresh(c *gin.Context) {
 
 	var req struct {
@@ -167,20 +116,6 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 	h.Success(c, gin.H{"access_token": token})
 }
-// func (h *Handler) Logout(c *gin.Context) {
-
-// 	userID := h.GetUserID(c)
-
-// 	err := h.service.Logout(userID)
-// 	if err != nil {
-// 		h.Error(c, err.Error())
-// 		return
-// 	}
-
-// 	h.Success(c, gin.H{
-// 		"message": "logout success",
-// 	})
-// }
 func (h *Handler) Logout(c *gin.Context) {
 
 	var req struct {
@@ -211,4 +146,31 @@ func (h *Handler) LogoutAll(c *gin.Context) {
 	}
 
 	h.Success(c, "logout all device success")
+}
+func (h *Handler) Devices(c *gin.Context) {
+
+	userID := h.GetUserID(c)
+
+	data, err := h.service.GetDevices(userID)
+	if err != nil {
+		h.Error(c, err.Error())
+		return
+	}
+
+	h.Success(c, data)
+}
+func (h *Handler) RevokeDevice(c *gin.Context) {
+
+	userID := h.GetUserID(c)
+	id := c.Param("id")
+
+	err := h.service.RevokeDevice(userID, id)
+	if err != nil {
+		h.Error(c, err.Error())
+		return
+	}
+
+	h.Success(c, gin.H{
+		"message": "device revoked",
+	})
 }

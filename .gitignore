@@ -47,3 +47,5 @@ go.work.sum
 # ========================
 .DS_Store
 Thumbs.db
+
+/internal/database/connection.go

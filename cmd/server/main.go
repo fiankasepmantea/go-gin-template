@@ -9,8 +9,8 @@ import (
 	"github.com/fiankasepman/go-gin-template/internal/database"
 	"github.com/fiankasepman/go-gin-template/internal/middleware"
 
-	userModule "github.com/fiankasepman/go-gin-template/internal/modules/user"
 	groupModule "github.com/fiankasepman/go-gin-template/internal/modules/group"
+	userModule "github.com/fiankasepman/go-gin-template/internal/modules/user"
 	usertoken "github.com/fiankasepman/go-gin-template/internal/modules/user_token"
 )
 
@@ -36,6 +36,10 @@ func main() {
 
 	// ================== USER TOKEN MODULE ==================
 	userTokenRepo := usertoken.NewRepository(db)
+
+	// start cron
+	usertoken.StartCleanupJob(userTokenRepo)
+
 	// ================== USER MODULE ==================
 	userRepo := userModule.NewRepository(db)
 	userService := userModule.NewService(userRepo, userTokenRepo)
@@ -65,6 +69,9 @@ func main() {
 	authGroup.PUT("/users/:id", userHandler.Update)
 	authGroup.DELETE("/users/:id", userHandler.Delete)
 	authGroup.GET("/me", userHandler.Me)
+	authGroup.GET("/devices", userHandler.Devices)
+	authGroup.DELETE("/devices/:id", userHandler.RevokeDevice)
+	authGroup.POST("/logout-all", userHandler.LogoutAll)
 
 	// ---------- GROUP ----------
 	authGroup.GET("/groups", groupHandler.GetAll)

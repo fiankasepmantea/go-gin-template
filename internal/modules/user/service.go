@@ -14,6 +14,14 @@ type Service struct {
 	repo *Repository
 	tokenRepo  *usertoken.Repository
 }
+type DeviceResponse struct {
+	ID        string     `json:"id"`
+	Device    *string    `json:"device"`
+	UserAgent *string    `json:"user_agent"`
+	IPAddress *string    `json:"ip_address"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	CreatedAt time.Time  `json:"created_at"`
+}
 
 func NewService(repo *Repository, tokenRepo *usertoken.Repository) *Service {
 	return &Service{
@@ -123,4 +131,45 @@ func (s *Service) Logout(refreshToken string) error {
 
 func (s *Service) LogoutAll(userID string) error {
 	return s.tokenRepo.DeleteByUser(userID)
+}
+
+func (s *Service) GetDevices(userID string) ([]DeviceResponse, error) {
+
+	var tokens []usertoken.UserToken
+
+	err := s.tokenRepo.FindByUser(userID, &tokens)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []DeviceResponse
+
+	for _, t := range tokens {
+		result = append(result, DeviceResponse{
+			ID:        t.ID,
+			Device:    t.Device,
+			UserAgent: t.UserAgent,
+			IPAddress: t.IPAddress,
+			ExpiresAt: t.ExpiresAt,
+			CreatedAt: t.CreatedAt,
+		})
+	}
+
+	return result, nil
+}
+func (s *Service) RevokeDevice(userID, tokenID string) error {
+
+	// optional: validasi ownership
+	var token usertoken.UserToken
+
+	err := s.tokenRepo.FindByID(tokenID, &token)
+	if err != nil {
+		return errors.New("device not found")
+	}
+
+	if token.UserID != userID {
+		return errors.New("unauthorized device")
+	}
+
+	return s.tokenRepo.DeleteByID(tokenID)
 }
