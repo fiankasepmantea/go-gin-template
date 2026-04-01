@@ -150,8 +150,9 @@ func (h *Handler) LogoutAll(c *gin.Context) {
 func (h *Handler) Devices(c *gin.Context) {
 
 	userID := h.GetUserID(c)
+	tokenID := h.GetTokenID(c)
 
-	data, err := h.service.GetDevices(userID)
+	data, err := h.service.GetDevices(userID, tokenID)
 	if err != nil {
 		h.Error(c, err.Error())
 		return

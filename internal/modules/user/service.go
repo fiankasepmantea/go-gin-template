@@ -21,6 +21,7 @@ type DeviceResponse struct {
 	IPAddress *string    `json:"ip_address"`
 	ExpiresAt time.Time  `json:"expires_at"`
 	CreatedAt time.Time  `json:"created_at"`
+	Current   bool       `json:"current"`
 }
 
 func NewService(repo *Repository, tokenRepo *usertoken.Repository) *Service {
@@ -82,15 +83,12 @@ func (s *Service) Login(username, password, device, ua, ip string) (*LoginRespon
 		return nil, errors.New("invalid password")
 	}
 
-	accessToken, err := auth.GenerateToken(user.UserID)
-	if err != nil {
-		return nil, err
-	}
-
+	
 	refreshToken := idgen.NewRefreshToken()
+	tokenID := idgen.NewUserTokenID()
 
 	token := usertoken.UserToken{
-		ID:           idgen.NewUserTokenID(),
+		ID:           tokenID,
 		UserID:       user.UserID,
 		RefreshToken: refreshToken,
 		Device:       &device,
@@ -100,6 +98,11 @@ func (s *Service) Login(username, password, device, ua, ip string) (*LoginRespon
 	}
 
 	err = s.tokenRepo.Create(&token)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := auth.GenerateToken(user.UserID, tokenID)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +126,7 @@ func (s *Service) Refresh(refreshToken string) (string, error) {
 		return "", errors.New("refresh token expired")
 	}
 
-	return auth.GenerateToken(token.UserID)
+	return auth.GenerateToken(token.UserID, token.ID)
 }
 func (s *Service) Logout(refreshToken string) error {
 	return s.tokenRepo.DeleteByToken(refreshToken)
@@ -133,7 +136,7 @@ func (s *Service) LogoutAll(userID string) error {
 	return s.tokenRepo.DeleteByUser(userID)
 }
 
-func (s *Service) GetDevices(userID string) ([]DeviceResponse, error) {
+func (s *Service) GetDevices(userID, currentTokenID string) ([]DeviceResponse, error) {
 
 	var tokens []usertoken.UserToken
 
@@ -145,6 +148,7 @@ func (s *Service) GetDevices(userID string) ([]DeviceResponse, error) {
 	var result []DeviceResponse
 
 	for _, t := range tokens {
+
 		result = append(result, DeviceResponse{
 			ID:        t.ID,
 			Device:    t.Device,
@@ -152,6 +156,7 @@ func (s *Service) GetDevices(userID string) ([]DeviceResponse, error) {
 			IPAddress: t.IPAddress,
 			ExpiresAt: t.ExpiresAt,
 			CreatedAt: t.CreatedAt,
+			Current:   t.ID == currentTokenID,
 		})
 	}
 

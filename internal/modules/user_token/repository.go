@@ -27,14 +27,12 @@ func (r *Repository) DeleteByUser(userID string) error {
 	return r.DB.Where("user_id = ?", userID).Delete(&UserToken{}).Error
 }
 
-func (r *Repository) FindByUser(userID string, out *[]UserToken) error {
-	return r.DB.
-		Where("user_id = ?", userID).
-		Order("created_at DESC").
-		Find(out).Error
-}
 func (r *Repository) DeleteByID(id string) error {
-	return r.DB.Where("id = ?", id).Delete(&UserToken{}).Error
+	return r.DB.Delete(&UserToken{}, "id = ?", id).Error
+}
+
+func (r *Repository) FindByUser(userID string, out *[]UserToken) error {
+	return r.DB.Where("user_id = ?", userID).Find(out).Error
 }
 func (r *Repository) DeleteExpired() error {
 	return r.DB.

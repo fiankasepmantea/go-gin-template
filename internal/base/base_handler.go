@@ -78,3 +78,16 @@ func (h *BaseHandler) GetPagination(c *gin.Context) (int, int, int) {
 	offset := (page - 1) * limit
 	return limit, page, offset
 }
+func (h *BaseHandler) GetTokenID(c *gin.Context) string {
+	val, exists := c.Get("token_id")
+	if !exists || val == nil {
+		return ""
+	}
+
+	str, ok := val.(string)
+	if !ok {
+		return ""
+	}
+
+	return str
+}

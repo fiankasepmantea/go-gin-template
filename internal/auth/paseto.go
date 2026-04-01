@@ -8,19 +8,20 @@ import (
 
 var pasetoV2 = paseto.NewV2()
 
-// 32 byte key wajib
 var symmetricKey = []byte("12345678901234567890123456789012")
 
 type TokenPayload struct {
-	UserID string    `json:"user_id"`
-	Exp    time.Time `json:"exp"`
+	UserID  string    `json:"user_id"`
+	TokenID string    `json:"token_id"`
+	Exp     time.Time `json:"exp"`
 }
 
-func GenerateToken(userID string) (string, error) {
+func GenerateToken(userID, tokenID string) (string, error) {
 
 	payload := TokenPayload{
-		UserID: userID,
-		Exp:    time.Now().Add(time.Hour * 24),
+		UserID:  userID,
+		TokenID: tokenID,
+		Exp:     time.Now().Add(24 * time.Hour),
 	}
 
 	return pasetoV2.Encrypt(symmetricKey, payload, nil)
