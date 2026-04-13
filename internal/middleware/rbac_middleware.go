@@ -1,13 +1,12 @@
 package middleware
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
-	"github.com/fiankasepman/go-gin-template/configs"
 	"github.com/fiankasepman/go-gin-template/internal/cache"
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +16,6 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 		path := c.FullPath()
 		method := c.Request.Method
 
-		// ================== USER CONTEXT ==================
 		userID := c.GetString("user_id")
 		domainID := c.GetInt("domain_id")
 
@@ -27,47 +25,28 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		// ================== GET ENDPOINT ==================
-		var endpoint struct {
-			EndpointID string
-			Bypass     int
-		}
-
-		err := db.Table("endpoint").
-			Select("endpoint_id, bypass").
-			Where("value = ? AND method = ?", path, method).
-			Take(&endpoint).Error
-
+		bypass, endpointID, err := getEndpoint(db, path, method)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "endpoint not registered"})
 			return
 		}
 
-		// ================== BYPASS ==================
-		if endpoint.Bypass == 1 {
+		if bypass {
 			c.Next()
 			return
 		}
 
 		// ================== SUPER ADMIN ==================
-		var isAdmin int
-
-		err = db.Table("users").
-			Select("is_admin").
-			Where("user_id = ? AND domain_id = ?", userID, domainID).
-			Scan(&isAdmin).Error
-
-		if err == nil && isAdmin == 1 {
+		if isSuperAdmin(db, userID, domainID) {
 			c.Next()
 			return
 		}
 
-		// ================== REDIS CACHE ==================
-		key := "rbac:" + userID + ":" + endpoint.EndpointID
+		// ================== REDIS ==================
+		key := fmt.Sprintf("rbac:%d:%s:%s", domainID, userID, endpointID)
 
 		val, err := cache.RDB.Get(cache.Ctx, key).Result()
-
 		if err == nil {
-			// cache hit
 			if val == "1" {
 				c.Next()
 				return
@@ -76,40 +55,73 @@ func RBACMiddleware(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// kalau bukan karena key tidak ada → redis error
-		if err != nil && !errors.Is(err, redis.Nil) {
-			// log optional
-			// log.Println("redis error:", err)
-		}
-
-		// ================== DB FALLBACK ==================
-		var count int64
-
-		err = db.Table("users u").
-			Joins("JOIN groups g ON g.group_id = u.group_id").
-			Joins("JOIN group_endpoint ge ON ge.group_id = g.group_id").
-			Where("u.user_id = ? AND u.domain_id = ? AND ge.endpoint_id = ?", userID, domainID, endpoint.EndpointID).
-			Count(&count).Error
-
+		// ================== DB CHECK ==================
+		allowed, err := checkPermission(db, userID, domainID, endpointID)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "rbac error"})
 			return
 		}
 
-		// ================== SET CACHE ==================
+		// ================== CACHE ==================
 		cacheValue := "0"
-		if count > 0 {
+		if allowed {
 			cacheValue = "1"
 		}
 
-		_ = cache.RDB.Set(cache.Ctx, key, cacheValue, configs.AccessTokenDuration).Err()
+		cache.RDB.Set(cache.Ctx, key, cacheValue, 10*time.Minute)
 
-		// ================== FINAL CHECK ==================
-		if count == 0 {
+		if !allowed {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
 
 		c.Next()
 	}
+}
+
+func getEndpoint(db *gorm.DB, path, method string) (bool, string, error) {
+
+	var endpoint struct {
+		EndpointID string
+		Bypass     int
+	}
+
+	err := db.Table("endpoint").
+		Select("endpoint_id, bypass").
+		Where("value = ? AND method = ?", path, method).
+		Take(&endpoint).Error
+
+	if err != nil {
+		return false, "", err
+	}
+
+	return endpoint.Bypass == 1, endpoint.EndpointID, nil
+}
+
+func isSuperAdmin(db *gorm.DB, userID string, domainID int) bool {
+	var isAdmin int
+
+	db.Table("users").
+		Select("is_admin").
+		Where("user_id = ? AND domain_id = ?", userID, domainID).
+		Scan(&isAdmin)
+
+	return isAdmin == 1
+}
+
+func checkPermission(db *gorm.DB, userID string, domainID int, endpointID string) (bool, error) {
+
+	var count int64
+
+	err := db.Table("users u").
+		Joins("JOIN groups g ON g.group_id = u.group_id AND g.domain_id = u.domain_id").
+		Joins("JOIN group_endpoint ge ON ge.group_id = g.group_id").
+		Where(`
+			u.user_id = ? 
+			AND u.domain_id = ? 
+			AND ge.endpoint_id = ?
+		`, userID, domainID, endpointID).
+		Count(&count).Error
+
+	return count > 0, err
 }

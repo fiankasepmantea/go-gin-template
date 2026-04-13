@@ -1,11 +1,19 @@
 package database
 
 import (
-	user "github.com/fiankasepman/go-gin-template/internal/modules/user"
-	group "github.com/fiankasepman/go-gin-template/internal/modules/group"
-	endpoint "github.com/fiankasepman/go-gin-template/internal/modules/endpoint"
-	groupendpoint "github.com/fiankasepman/go-gin-template/internal/modules/groupendpoint"
 	"github.com/fiankasepman/go-gin-template/internal/auth"
+	endpoint "github.com/fiankasepman/go-gin-template/internal/modules/endpoint"
+	group "github.com/fiankasepman/go-gin-template/internal/modules/group"
+	groupendpoint "github.com/fiankasepman/go-gin-template/internal/modules/groupendpoint"
+	user "github.com/fiankasepman/go-gin-template/internal/modules/user"
+)
+
+const (
+	GroupNameSuperAdmin = "Super Admin"
+	WhereGroupByDomain  = "group_name = ? AND domain_id = ?"
+	DefaultDomainID     = 1
+	DefaultUsername     = "admin"
+	DefaultPassword     = "admin123"
 )
 
 func SeedAll() {
@@ -15,96 +23,126 @@ func SeedAll() {
 	SeedGroupEndpoint()
 }
 
-// -------------------- GROUP --------------------
+// ================= GROUP =================
 func SeedGroup() {
 	var count int64
-	DB.Table("groups").Where("group_name = ?", "Super Admin").Count(&count)
-	if count > 0 {
-		return
-	}
 
-	DB.Table("groups").Create(map[string]interface{}{
-		"group_id":   group.NewGroupID(),
-		"group_name": "Super Admin",
-		"domain_id":  1,
-	})
-}
-
-// -------------------- ENDPOINT --------------------
-func SeedEndpoint() {
-	endpoints := []map[string]interface{}{
-		{"endpoint_id": endpoint.NewEndpointID(), "value": "/users", "method": "GET", "type": "backend", "bypass": 0},
-		{"endpoint_id": endpoint.NewEndpointID(), "value": "/me", "method": "GET", "type": "backend", "bypass": 0},
-		{"endpoint_id": endpoint.NewEndpointID(), "value": "/login", "method": "POST", "type": "backend", "bypass": 1},
-	}
-
-	for _, e := range endpoints {
-		var count int64
-		DB.Table("endpoint").Where("value = ? AND method = ?", e["value"], e["method"]).Count(&count)
-		if count == 0 {
-			DB.Table("endpoint").Create(&e)
-		}
-	}
-}
-
-// -------------------- ADMIN USER --------------------
-func SeedAdmin() {
-	var count int64
-	DB.Table("users").
-		Where("username = ?", "admin").
+	DB.Table("groups").
+		Where(WhereGroupByDomain, GroupNameSuperAdmin, DefaultDomainID).
 		Count(&count)
 
 	if count > 0 {
 		return
 	}
 
-	pass, _ := auth.HashPassword("admin123")
+	DB.Table("groups").Create(map[string]interface{}{
+		"group_id":   group.NewGroupID(),
+		"group_name": GroupNameSuperAdmin,
+		"domain_id":  DefaultDomainID,
+	})
+}
+
+// ================= ENDPOINT =================
+func SeedEndpoint() {
+
+	endpoints := []map[string]interface{}{
+		{"value": "/login", "method": "POST", "bypass": 1},
+		{"value": "/refresh", "method": "POST", "bypass": 1},
+
+		{"value": "/users", "method": "GET", "bypass": 0},
+		{"value": "/users", "method": "POST", "bypass": 0},
+		{"value": "/users/:id", "method": "PUT", "bypass": 0},
+		{"value": "/users/:id", "method": "DELETE", "bypass": 0},
+		{"value": "/me", "method": "GET", "bypass": 0},
+		{"value": "/devices", "method": "GET", "bypass": 0},
+	}
+
+	for _, e := range endpoints {
+
+		var count int64
+		DB.Table("endpoint").
+			Where("value = ? AND method = ?", e["value"], e["method"]).
+			Count(&count)
+
+		if count == 0 {
+
+			bypass := 0
+			if v, ok := e["bypass"]; ok {
+				bypass = v.(int)
+			}
+
+			DB.Table("endpoint").Create(map[string]interface{}{
+				"endpoint_id": endpoint.NewEndpointID(),
+				"value":       e["value"],
+				"method":      e["method"],
+				"type":        "API",
+				"bypass":      bypass,
+			})
+		}
+	}
+}
+
+// ================= ADMIN =================
+func SeedAdmin() {
+
+	var count int64
+	DB.Table("users").
+		Where("username = ?", DefaultUsername).
+		Count(&count)
+
+	if count > 0 {
+		return
+	}
+
+	pass, _ := auth.HashPassword(DefaultPassword)
 	isAdmin := int16(1)
 
 	var groupID string
 	DB.Table("groups").
 		Select("group_id").
-		Where("group_name = ?", "Super Admin").
+		Where(WhereGroupByDomain, GroupNameSuperAdmin, DefaultDomainID).
 		Scan(&groupID)
 
-	admin := user.User{
-		UserID:   user.NewUserID(),
-		Name:     "Admin",
-		Username: "admin",
-		Password: pass,
-		GroupID:  &groupID,
-		IsAdmin:  &isAdmin,
-		DomainID: 1,
-	}
-
-	DB.Table("users").Create(&admin)
+	DB.Table("users").Create(map[string]interface{}{
+		"user_id":   user.NewUserID(),
+		"name":      "Admin",
+		"username":  DefaultUsername,
+		"password":  pass,
+		"group_id":  groupID,
+		"is_admin":  isAdmin,
+		"domain_id": DefaultDomainID,
+	})
 }
 
-// -------------------- GROUP_ENDPOINT --------------------
+// ================= GROUP ENDPOINT =================
 func SeedGroupEndpoint() {
-	var count int64
-	DB.Table("group_endpoint").Count(&count)
-	if count > 0 {
-		return
-	}
 
 	var groupID string
 	DB.Table("groups").
 		Select("group_id").
-		Where("group_name = ?", "Super Admin").
+		Where(WhereGroupByDomain, GroupNameSuperAdmin, DefaultDomainID).
 		Scan(&groupID)
 
 	var endpoints []struct {
-		EndpointID string `gorm:"column:endpoint_id"`
+		EndpointID string
 	}
 
 	DB.Table("endpoint").Select("endpoint_id").Find(&endpoints)
 
 	for _, e := range endpoints {
-		DB.Table("group_endpoint").Create(map[string]interface{}{
-			"id":          groupendpoint.NewGroupEndpointID(),
-			"group_id":    groupID,
-			"endpoint_id": e.EndpointID,
-		})
+
+		var count int64
+
+		DB.Table("group_endpoint").
+			Where("group_id = ? AND endpoint_id = ?", groupID, e.EndpointID).
+			Count(&count)
+
+		if count == 0 {
+			DB.Table("group_endpoint").Create(map[string]interface{}{
+				"id":          groupendpoint.NewGroupEndpointID(),
+				"group_id":    groupID,
+				"endpoint_id": e.EndpointID,
+			})
+		}
 	}
 }

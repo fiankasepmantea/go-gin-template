@@ -19,18 +19,25 @@ func RunMigrations() {
 
 		var count int64
 
-		DB.Table("migrations").
+		err := DB.Table("migrations").
 			Where("name = ?", m.Name).
-			Count(&count)
+			Count(&count).Error
+
+		if err != nil {
+			panic(err)
+		}
 
 		if count > 0 {
 			continue
 		}
 
-		fmt.Println("running:", m.Name)
+		fmt.Println("running migration:", m.Name)
 
 		m.Up(DB)
 
-		DB.Exec("INSERT INTO migrations (name) VALUES (?)", m.Name)
+		err = DB.Exec("INSERT INTO migrations (name) VALUES (?)", m.Name).Error
+		if err != nil {
+			panic(err)
+		}
 	}
 }

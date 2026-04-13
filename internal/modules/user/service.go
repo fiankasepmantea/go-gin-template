@@ -2,6 +2,7 @@ package user
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/fiankasepman/go-gin-template/configs"
@@ -232,21 +233,24 @@ func (s *Service) preloadRBAC(user User) {
 		return
 	}
 
-	var endpointIDs []string
-
-	err := s.repo.DB.Table("users u").
-		Select("ge.endpoint_id").
-		Joins("JOIN groups g ON g.group_id = u.group_id").
-		Joins("JOIN group_endpoint ge ON ge.group_id = g.group_id").
-		Where("u.user_id = ?", user.UserID).
-		Scan(&endpointIDs).Error
-
-	if err != nil {
+	// ✅ admin skip
+	if user.IsAdmin != nil && *user.IsAdmin == 1 {
 		return
 	}
 
+	var endpointIDs []string
+
+	s.repo.DB.Table("users u").
+		Select("ge.endpoint_id").
+		Joins("JOIN groups g ON g.group_id = u.group_id AND g.domain_id = u.domain_id").
+		Joins("JOIN group_endpoint ge ON ge.group_id = g.group_id").
+		Where("u.user_id = ? AND u.domain_id = ?", user.UserID, user.DomainID).
+		Scan(&endpointIDs)
+
 	for _, ep := range endpointIDs {
-		key := "rbac:" + user.UserID + ":" + ep
-		cache.RDB.Set(cache.Ctx, key, "1", configs.AccessTokenDuration)
+
+		key := fmt.Sprintf("rbac:%d:%s:%s", user.DomainID, user.UserID, ep)
+
+		cache.RDB.Set(cache.Ctx, key, "1", 10*time.Minute)
 	}
 }
